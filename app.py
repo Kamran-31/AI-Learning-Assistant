@@ -1,6 +1,3 @@
-import os
-from io import BytesIO
-
 import streamlit as st
 from groq import Groq
 from pypdf import PdfReader
@@ -48,15 +45,6 @@ st.markdown(
 
     /* ---------- Branding ---------- */
 
-    .brand-container {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 0.4rem 0 1.2rem 0;
-        width: 100%;
-    }
-
     .brand-logo-text {
         font-size: 1.75rem;
         font-weight: 800;
@@ -78,6 +66,7 @@ st.markdown(
         font-weight: 600;
         border: 1px solid rgba(128, 128, 128, 0.35);
         white-space: nowrap;
+        margin-top: 0.75rem;
     }
 
     /* ---------- Main Header ---------- */
@@ -144,27 +133,6 @@ st.markdown(
         opacity: 0.75;
     }
 
-    /* ---------- Mobile ---------- */
-
-    @media (max-width: 768px) {
-
-        .brand-container {
-            align-items: flex-start;
-        }
-
-        .brand-logo-text {
-            font-size: 1.45rem;
-        }
-
-        .brand-badge {
-            font-size: 0.65rem;
-        }
-
-        .main-title {
-            font-size: 2rem;
-        }
-    }
-
     </style>
     """,
     unsafe_allow_html=True,
@@ -179,10 +147,6 @@ st.markdown(
 def initialize_groq_client():
     """
     Initialize the Groq client using Streamlit secrets.
-
-    Expected secret:
-
-        GROQ_API_KEY = "your-api-key"
     """
 
     api_key = st.secrets.get("GROQ_API_KEY")
@@ -253,8 +217,8 @@ def extract_text_from_file(uploaded_file):
             if not extracted.strip():
                 return (
                     "",
-                    "This PDF appears to contain scanned/image-based pages. "
-                    "Text extraction could not find readable text.",
+                    "This PDF appears to contain scanned/image-based "
+                    "pages. Text extraction could not find readable text.",
                 )
 
             return clean_extracted_text(extracted), None
@@ -271,7 +235,9 @@ def extract_text_from_file(uploaded_file):
                 if paragraph.text.strip()
             ]
 
-            return clean_extracted_text("\n".join(paragraphs)), None
+            return clean_extracted_text(
+                "\n".join(paragraphs)
+            ), None
 
         # ---------------- TXT / MD ----------------
 
@@ -330,10 +296,10 @@ def prepare_document_context(files):
             continue
 
         if not text.strip():
-            warnings.append(f"{filename}: No readable text found.")
+            warnings.append(
+                f"{filename}: No readable text found."
+            )
             continue
-
-        original_length = len(text)
 
         # Per-file limit
         if len(text) > MAX_FILE_CHARS:
@@ -378,9 +344,6 @@ def prepare_document_context(files):
 """
         )
 
-        if original_length > MAX_FILE_CHARS:
-            pass
-
     if not document_sections:
         return "", warnings
 
@@ -394,6 +357,7 @@ def prepare_document_context(files):
 # ============================================================
 
 LEARNING_MODES = {
+
     "Comprehensive Conceptual Explanation": """
 Explain concepts deeply and clearly.
 
@@ -444,6 +408,7 @@ When discussing programming or technical topics:
 - Provide practical examples
 
 Use clean Markdown code blocks for code.
+
 Never claim code was executed or tested unless it actually was.
 """,
 
@@ -615,6 +580,7 @@ UPLOADED DOCUMENT CONTEXT
 """
 
     if document_context:
+
         prompt += f"""
 
 The learner uploaded the following reference material:
@@ -625,7 +591,9 @@ The learner uploaded the following reference material:
 END DOCUMENT CONTEXT
 ============================================================
 """
+
     else:
+
         prompt += """
 
 No documents are currently attached.
@@ -674,20 +642,27 @@ if "document_warnings" not in st.session_state:
 
 with st.sidebar:
 
+    # IMPORTANT:
+    # Keep this simple structure so the original appearance
+    # of the branding is preserved.
+
     st.markdown(
         """
-        <div class="brand-container">
-            <div>
-                <div class="brand-logo-text">Synapse.AI</div>
-                <div class="brand-tagline">
-                    Adaptive AI Learning Companion
-                </div>
+        <div>
+
+            <div class="brand-logo-text">
+                Synapse.AI
             </div>
 
-            <span class="brand-badge">
-                Adaptive Tutor
-            </span>
+            <div class="brand-tagline">
+                Adaptive AI Learning Companion
+            </div>
+
         </div>
+
+        <span class="brand-badge">
+            Adaptive Tutor
+        </span>
         """,
         unsafe_allow_html=True,
     )
@@ -706,14 +681,12 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # Learning mode
     learning_mode = st.selectbox(
         "Learning Mode",
         options=list(LEARNING_MODES.keys()),
         index=0,
     )
 
-    # Expertise
     expertise_level = st.selectbox(
         "Your Expertise Level",
         options=[
@@ -727,7 +700,6 @@ with st.sidebar:
 
     st.divider()
 
-    # Documents
     st.markdown("### 📚 Learning Material")
 
     uploaded_files = st.file_uploader(
@@ -781,7 +753,6 @@ with st.sidebar:
 
     st.divider()
 
-    # Conversation controls
     st.markdown("### 💬 Conversation")
 
     if st.button(
@@ -803,7 +774,6 @@ with st.sidebar:
 
     st.divider()
 
-    # Model info
     st.markdown("### ⚙️ System")
 
     st.caption(f"Model: `{MODEL_NAME}`")
@@ -860,15 +830,22 @@ if client is None:
 # CURRENT LEARNING CONTEXT
 # ============================================================
 
+document_status = ""
+
+if st.session_state.document_context:
+    document_status = (
+        "&nbsp;&nbsp;•&nbsp;&nbsp;"
+        "<strong>📚 Documents:</strong> Ready"
+    )
+
+
 st.markdown(
     f"""
     <div class="chat-info">
         <strong>Mode:</strong> {learning_mode}
         &nbsp;&nbsp;•&nbsp;&nbsp;
         <strong>Level:</strong> {expertise_level}
-        {"&nbsp;&nbsp;•&nbsp;&nbsp;<strong>📚 Documents:</strong> Ready"
-        if st.session_state.document_context
-        else ""}
+        {document_status}
     </div>
     """,
     unsafe_allow_html=True,
@@ -999,7 +976,7 @@ if user_prompt:
                 )
 
         # ----------------------------------------------------
-        # 413 - Request Too Large
+        # Error handling
         # ----------------------------------------------------
 
         except Exception as error:
@@ -1024,10 +1001,6 @@ if user_prompt:
 
                 st.error(full_response)
 
-            # ------------------------------------------------
-            # 401 - Authentication
-            # ------------------------------------------------
-
             elif (
                 "401" in error_text
                 or "authentication" in error_text.lower()
@@ -1041,10 +1014,6 @@ if user_prompt:
 
                 st.error(full_response)
 
-            # ------------------------------------------------
-            # 429 - Rate Limit
-            # ------------------------------------------------
-
             elif (
                 "429" in error_text
                 or "rate limit" in error_text.lower()
@@ -1057,10 +1026,6 @@ if user_prompt:
                 )
 
                 st.warning(full_response)
-
-            # ------------------------------------------------
-            # Model Error
-            # ------------------------------------------------
 
             elif (
                 "model" in error_text.lower()
@@ -1078,10 +1043,6 @@ if user_prompt:
 
                 st.error(full_response)
 
-            # ------------------------------------------------
-            # Connection / Timeout
-            # ------------------------------------------------
-
             elif (
                 "timeout" in error_text.lower()
                 or "connection" in error_text.lower()
@@ -1094,10 +1055,6 @@ if user_prompt:
                 )
 
                 st.error(full_response)
-
-            # ------------------------------------------------
-            # Generic Error
-            # ------------------------------------------------
 
             else:
 
