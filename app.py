@@ -1,111 +1,77 @@
 """
-AI Learning Assistant - Intelligent Adaptive Tutor
-Built with Streamlit & Groq API
-Model: openai/gpt-oss-120b
+CogniLearn AI - Intelligent Learning Companion
+Modern ChatGPT/Claude-style Interface with Document Processing & Resource Linking
+Powered by Groq
 """
 
 import os
 import streamlit as st
 from groq import Groq
+import pypdf
+import docx
 
 # ---------------------------------------------------------
-# Page Configuration & Metadata
+# Page Configuration & Styling
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="CogniLearn AI | Adaptive Learning Companion",
+    page_title="CogniLearn AI",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ---------------------------------------------------------
-# Custom Modern CSS Styling
-# ---------------------------------------------------------
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
     }
 
-    /* Gradient header banner */
-    .hero-container {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        padding: 28px 32px;
+    /* Main chat canvas width & spacing */
+    .block-container {
+        max-width: 900px;
+        padding-top: 2rem;
+        padding-bottom: 4rem;
+    }
+
+    /* Clean subtle app header */
+    .chat-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding-bottom: 16px;
         margin-bottom: 24px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-    .hero-title {
-        font-size: 2.1rem;
-        font-weight: 700;
-        background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 6px;
-    }
-    .hero-subtitle {
-        color: #94a3b8;
-        font-size: 1.0rem;
-        font-weight: 400;
-        margin: 0;
-    }
-
-    /* Mode Pill Card */
-    .mode-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        font-size: 0.82rem;
+    .chat-header h1 {
+        font-size: 1.45rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
-        background: rgba(56, 189, 248, 0.12);
-        color: #38bdf8;
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        margin-bottom: 12px;
+        margin: 0;
+        letter-spacing: -0.02em;
     }
-
-    /* Metric card widgets */
-    .metric-card {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 14px 18px;
-        text-align: left;
-    }
-    .metric-val {
-        font-size: 1.35rem;
-        font-weight: 700;
-        color: #f8fafc;
-    }
-    .metric-lbl {
-        font-size: 0.78rem;
-        font-weight: 500;
+    .chat-header span {
+        font-size: 0.82rem;
         color: #94a3b8;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
     }
 
-    /* Quick action buttons */
-    .stButton>button {
-        border-radius: 10px;
-        font-weight: 500;
-        transition: all 0.2s ease-in-out;
-    }
-
-    /* Chat bubble polish */
+    /* Streamlit Chat Messages polish */
     .stChatMessage {
-        border-radius: 14px;
-        padding: 12px;
-        margin-bottom: 8px;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 14px;
     }
 
-    /* Code block styling */
+    /* Code blocks */
     code, pre {
-        font-family: 'Fira Code', monospace !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    /* File uploader container styling */
+    div[data-testid="stFileUploader"] {
+        border-radius: 10px;
+        padding: 6px;
     }
     </style>
     """,
@@ -113,207 +79,168 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# API Initialization & Secret Fetching
+# Secret Management & Groq Client Setup
 # ---------------------------------------------------------
-def get_groq_client():
-    api_key = None
-    if "GROQ_API_KEY" in st.secrets:
-        api_key = st.secrets["GROQ_API_KEY"]
-    elif os.getenv("GROQ_API_KEY"):
-        api_key = os.getenv("GROQ_API_KEY")
+api_key = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY"))
 
-    if not api_key:
-        return None
-    return Groq(api_key=api_key)
+if not api_key:
+    st.error("⚠️ `GROQ_API_KEY` not found. Please define it in `.streamlit/secrets.toml` or your environment variables.")
+    st.stop()
+
+client = Groq(api_key=api_key)
 
 # ---------------------------------------------------------
-# Sidebar Configuration & Learning Settings
+# Document Parser Utilities
+# ---------------------------------------------------------
+def extract_text_from_file(uploaded_file) -> str:
+    """Extracts raw text content from PDF, DOCX, TXT, or MD files."""
+    file_type = uploaded_file.name.split(".")[-1].lower()
+    text = ""
+    try:
+        if file_type == "pdf":
+            reader = pypdf.PdfReader(uploaded_file)
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+        elif file_type == "docx":
+            doc = docx.Document(uploaded_file)
+            text = "\n".join([p.text for p in doc.paragraphs])
+        elif file_type in ["txt", "md"]:
+            text = uploaded_file.read().decode("utf-8")
+    except Exception as e:
+        st.sidebar.error(f"Failed to parse file: {str(e)}")
+    return text.strip()
+
+# ---------------------------------------------------------
+# Sidebar Controls & File Upload
 # ---------------------------------------------------------
 with st.sidebar:
-    st.markdown("### ⚙️ Learning Engine Controls")
-    st.markdown("Customize pedagogical style & depth for your session.")
+    st.markdown("### 📚 Study Session Settings")
 
-    # API Status Check
-    client = get_groq_client()
-    if client:
-        st.success("✅ Groq API Connected", icon="⚡")
-    else:
-        st.warning("⚠️ GROQ_API_KEY not detected in secrets or env.")
-        manual_key = st.text_input("Enter Groq API Key:", type="password")
-        if manual_key:
-            client = Groq(api_key=manual_key)
-            st.success("Key set for current session!")
-
-    st.markdown("---")
-
-    # Learning Fields & Mode Selectors
     learning_mode = st.selectbox(
-        "🎯 Pedagogical Mode",
+        "Learning Mode",
         [
-            "Interactive Conceptual Explanation",
-            "Socratic Questioning & Reasoning",
-            "Deep Dive with Code & Architecture",
-            "Curriculum / Roadmap Builder",
+            "Comprehensive Conceptual Explanation",
+            "Socratic Discussion & Guidance",
+            "In-Depth Technical & Code Walkthrough",
+            "Structured Curriculum Roadmap",
             "Active Recall & Quiz Generator",
-            "Feynman Technique (Explain like I am 12)",
+            "Feynman Technique (Simple Analogies)",
         ],
         index=0,
     )
 
     expertise_level = st.select_slider(
-        "📈 Learner Background",
-        options=["Absolute Beginner", "Intermediate", "Advanced Engineer", "Domain Specialist"],
+        "Target Level",
+        options=["Beginner", "Intermediate", "Advanced", "Domain Specialist"],
         value="Intermediate",
     )
 
-    include_diagrams = st.checkbox("Include Mermaid.js Flowcharts/Diagrams", value=True)
-    include_examples = st.checkbox("Generate Real-World Analogies & Case Studies", value=True)
-    generate_exercises = st.checkbox("Attach Practice Questions & Challenges", value=True)
-
     st.markdown("---")
-    temperature = st.slider("Response Creativity (Temp)", min_value=0.0, max_value=1.0, value=0.4, step=0.05)
-    
-    col_clear, col_export = st.columns(2)
-    with col_clear:
-        if st.button("🧹 Clear Chat", use_container_width=True):
-            st.session_state.messages = []
-            st.rerun()
-
-    st.markdown(
-        """
-        <div style="font-size: 0.78rem; color: #64748b; margin-top: 24px; text-align: center;">
-            Powered by <b>openai/gpt-oss-120b</b> on Groq LPU™ Engine.<br>
-            Ultra-low latency inference.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.markdown("### 📎 Attach Knowledge Material")
+    uploaded_files = st.file_uploader(
+        "Upload notes, textbooks, slides, or assignments (PDF, DOCX, TXT, MD)",
+        type=["pdf", "docx", "txt", "md"],
+        accept_multiple_files=True,
     )
 
+    document_context = ""
+    if uploaded_files:
+        parsed_docs = []
+        for file in uploaded_files:
+            content = extract_text_from_file(file)
+            if content:
+                # Prevent token overflows by providing generous context window segment
+                parsed_docs.append(f"--- START OF ATTACHED FILE: {file.name} ---\n{content[:8000]}\n--- END OF FILE ---")
+        document_context = "\n\n".join(parsed_docs)
+        st.success(f"{len(uploaded_files)} file(s) attached to memory context.")
+
+    st.markdown("---")
+    if st.button("🧹 Clear Conversation", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
 # ---------------------------------------------------------
-# System Prompt Constructor
+# System Instructions Engine
 # ---------------------------------------------------------
-def construct_system_prompt(mode: str, level: str, diagrams: bool, analogies: bool, practice: bool) -> str:
+def construct_system_prompt(mode: str, level: str, doc_ctx: str) -> str:
     instructions = [
-        f"You are CogniLearn AI, a world-class educational AI architect and personalized tutor.",
-        f"The learner's current background knowledge level is: {level}.",
-        f"Active Learning Mode: {mode}.",
-        "Your responses should be structured, crystal-clear, beautifully formatted in Markdown, and engaging.",
+        "You are CogniLearn AI, an elite educational mentor and subject-matter expert.",
+        f"Learner experience level: {level}.",
+        f"Active engagement style: {mode}.",
+        "Communication standards:",
+        "- Provide deep, articulated, clear, and comprehensive explanations.",
+        "- Use Markdown formatting generously (structured tables, clear bullet points, bold markers, and code snippets).",
+        "- For architectural designs, system workflows, or lifecycles, output a structured Mermaid.js diagram block.",
+        "- Provide curated resource recommendations (documentation, standard papers, books, or reputable websites with markdown links) at the end of comprehensive explanations.",
+        "- When the user attaches files or notes, prioritize synthesizing and answering based on the provided material.",
     ]
 
-    if mode == "Interactive Conceptual Explanation":
+    if mode == "Socratic Discussion & Guidance":
         instructions.append(
-            "Structure your response with: 1. Core Concept Overview, 2. The 'Why It Matters', 3. How It Works step-by-step, 4. Key Takeaways."
-        )
-    elif mode == "Socratic Questioning & Reasoning":
-        instructions.append(
-            "Adopt the Socratic method. Do not simply hand over complete answers; guide the learner through thoughtful probing questions, hint ladders, and reflective deductions."
-        )
-    elif mode == "Deep Dive with Code & Architecture":
-        instructions.append(
-            "Provide production-grade code snippets, architecture breakdowns, edge cases, time/space complexity analysis, and modern engineering best practices."
-        )
-    elif mode == "Curriculum / Roadmap Builder":
-        instructions.append(
-            "Design a modular, week-by-week or milestone-based mastery roadmap with learning objectives, curated project ideas, and verification checkpoints."
+            "Do not hand over answers immediately. Scaffold the learning by asking guiding, thought-provoking questions and offering constructive hints."
         )
     elif mode == "Active Recall & Quiz Generator":
         instructions.append(
-            "Generate a structured knowledge check containing: 3 multiple-choice questions with answer keys hidden in collapsible details, 2 scenario-based conceptual challenges, and self-evaluation rubrics."
-        )
-    elif mode == "Feynman Technique (Explain like I am 12)":
-        instructions.append(
-            "Explain complex concepts using intuitive, vivid analogies, everyday vocabulary, and zero unnecessary jargon. Keep it thoroughly accessible without compromising core truth."
+            "Formulate realistic exam-style questions, scenario dilemmas, and self-evaluation rubrics. Hide answers inside `<details><summary>Click to view solution</summary>...</details>` blocks."
         )
 
-    if diagrams:
-        instructions.append("Whenever depicting flows, architectures, states, or relationships, provide a clean `mermaid` code block.")
-
-    if analogies:
-        instructions.append("Include at least one vivid real-world comparison or industrial case study.")
-
-    if practice:
-        instructions.append("Conclude your response with a '🧠 Mini Challenge' or 'Self-Review Question' to solidify understanding.")
+    if doc_ctx:
+        instructions.append(f"\nCONTEXT FROM ATTACHED DOCUMENTS:\n{doc_ctx}")
 
     return "\n".join(instructions)
 
 # ---------------------------------------------------------
-# Main UI Layout
+# Main Chat Canvas
 # ---------------------------------------------------------
 st.markdown(
-    f"""
-    <div class="hero-container">
-        <span class="mode-badge">{learning_mode.upper()}</span>
-        <div class="hero-title">CogniLearn AI Studio</div>
-        <p class="hero-subtitle">Adaptive Intelligence for Deep Technical & Conceptual Mastery • Groq Acceleration</p>
+    """
+    <div class="chat-header">
+        <h1>CogniLearn AI</h1>
+        <span>Adaptive Academic & Technical Tutor</span>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# Quick Metric Highlights
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.markdown('<div class="metric-card"><div class="metric-val">gpt-oss-120b</div><div class="metric-lbl">Target Model</div></div>', unsafe_allow_html=True)
-with c2:
-    st.markdown(f'<div class="metric-card"><div class="metric-val">{expertise_level}</div><div class="metric-lbl">Learner Depth</div></div>', unsafe_allow_html=True)
-with c3:
-    st.markdown('<div class="metric-card"><div class="metric-val">Groq LPU</div><div class="metric-lbl">Inference Stack</div></div>', unsafe_allow_html=True)
-with c4:
-    total_turns = len(st.session_state.get("messages", [])) // 2
-    st.markdown(f'<div class="metric-card"><div class="metric-val">{total_turns}</div><div class="metric-lbl">Discussions Held</div></div>', unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# Chat State Management
-# ---------------------------------------------------------
+# Initialize Chat Memory
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant",
             "content": (
-                "👋 Hello! I am your AI Learning Companion. What topic, system, or concept would you like to master today?\n\n"
-                "💡 *Quick prompt ideas:*\n"
-                "- *'Explain Distributed Consensus (Raft & Paxos) with diagrams'*\n"
-                "- *'Design a 6-week curriculum to learn Generative AI Agents'*\n"
-                "- *'Help me debug and optimize Transformer Attention mechanisms'*\n"
-                "- *'Quiz me on System Design concepts like Sharding and CAP theorem'*"
+                "Hello! What would you like to explore or learn today?\n\n"
+                "Feel free to upload textbooks, slide decks, or lecture notes in the sidebar, "
+                "or ask deep conceptual questions, request roadmaps, or prepare for exams."
             ),
         }
     ]
 
-# Display Conversation History
+# Render Message History
 for msg in st.session_state.messages:
     avatar = "🧑‍💻" if msg["role"] == "user" else "🎓"
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
-# ---------------------------------------------------------
-# User Input & Streaming Generation
-# ---------------------------------------------------------
-user_prompt = st.chat_input("Enter a topic, question, or learning objective...")
+# User Interaction & Streaming
+user_prompt = st.chat_input("Ask a question, request a breakdown, or reference uploaded documents...")
 
 if user_prompt:
-    if not client:
-        st.error("Please provide a valid Groq API Key in `.streamlit/secrets.toml` or via the sidebar.")
-        st.stop()
-
-    # Append user prompt
+    # Append & display user message
     st.session_state.messages.append({"role": "user", "content": user_prompt})
     with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(user_prompt)
 
-    # Build conversation payload
-    system_prompt = construct_system_prompt(
-        learning_mode, expertise_level, include_diagrams, include_examples, generate_exercises
-    )
-
+    # Build prompt payload
+    system_prompt = construct_system_prompt(learning_mode, expertise_level, document_context)
     api_messages = [{"role": "system", "content": system_prompt}]
-    # Keep last 10 messages for contextual continuity without token overflow
+
+    # Carry forward recent chat turns for contextual continuity
     for m in st.session_state.messages[-10:]:
         api_messages.append({"role": m["role"], "content": m["content"]})
 
-    # Stream AI response
+    # Stream the assistant response
     with st.chat_message("assistant", avatar="🎓"):
         response_placeholder = st.empty()
         full_response = ""
@@ -322,7 +249,7 @@ if user_prompt:
             stream = client.chat.completions.create(
                 model="openai/gpt-oss-120b",
                 messages=api_messages,
-                temperature=temperature,
+                temperature=0.35,
                 stream=True,
             )
 
@@ -336,4 +263,4 @@ if user_prompt:
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
         except Exception as e:
-            st.error(f"Error communicating with Groq API: {str(e)}")
+            st.error(f"Error communicating with API: {str(e)}")
