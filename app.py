@@ -55,6 +55,44 @@ st.markdown(
         color: #94a3b8;
     }
 
+    /* Clean modern logo-style app header */
+    .brand-container {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding-bottom: 20px;
+        margin-bottom: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .brand-logo-text {
+        font-size: 2.3rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+        line-height: 1.1;
+    }
+    .brand-tagline {
+        font-size: 0.88rem;
+        color: #94a3b8;
+        font-weight: 400;
+        margin-top: 4px;
+        letter-spacing: 0.01em;
+    }
+    .brand-badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        background: rgba(56, 189, 248, 0.12);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    
     /* Streamlit Chat Messages polish */
     .stChatMessage {
         border-radius: 12px;
@@ -192,9 +230,12 @@ def construct_system_prompt(mode: str, level: str, doc_ctx: str) -> str:
 # ---------------------------------------------------------
 st.markdown(
     """
-    <div class="chat-header">
-        <h1>CogniLearn AI</h1>
-        <span>Adaptive Academic & Technical Tutor</span>
+    <div class="brand-container">
+        <div>
+            <div class="brand-logo-text">SYNAPSE<span style="-webkit-text-fill-color: #f8fafc;">.AI</span></div>
+            <div class="brand-tagline">Autonomous Cognitive Tutor & Knowledge Synthesizer</div>
+        </div>
+        <span class="brand-badge">Adaptive Engine</span>
     </div>
     """,
     unsafe_allow_html=True,
