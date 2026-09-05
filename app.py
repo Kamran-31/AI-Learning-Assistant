@@ -1,14 +1,20 @@
 """
 CogniLearn AI - Intelligent Learning Companion
 Modern ChatGPT/Claude-style Interface with Document Processing & Resource Linking
-Powered by Groq
+Loads API Key from .env file or environment variables
 """
 
 import os
 import streamlit as st
 from groq import Groq
+from dotenv import load_dotenv
 import pypdf
 import docx
+
+# ---------------------------------------------------------
+# Load Environment Variables from .env
+# ---------------------------------------------------------
+load_dotenv()
 
 # ---------------------------------------------------------
 # Page Configuration & Styling
@@ -81,10 +87,10 @@ st.markdown(
 # ---------------------------------------------------------
 # Secret Management & Groq Client Setup
 # ---------------------------------------------------------
-api_key = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY"))
+api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
-    st.error("⚠️ `GROQ_API_KEY` not found. Please define it in `.streamlit/secrets.toml` or your environment variables.")
+    st.error("⚠️ `GROQ_API_KEY` not found. Please ensure it is set inside your `.env` file like `GROQ_API_KEY=your_key`.")
     st.stop()
 
 client = Groq(api_key=api_key)
@@ -151,7 +157,6 @@ with st.sidebar:
         for file in uploaded_files:
             content = extract_text_from_file(file)
             if content:
-                # Prevent token overflows by providing generous context window segment
                 parsed_docs.append(f"--- START OF ATTACHED FILE: {file.name} ---\n{content[:8000]}\n--- END OF FILE ---")
         document_context = "\n\n".join(parsed_docs)
         st.success(f"{len(uploaded_files)} file(s) attached to memory context.")
@@ -227,20 +232,16 @@ for msg in st.session_state.messages:
 user_prompt = st.chat_input("Ask a question, request a breakdown, or reference uploaded documents...")
 
 if user_prompt:
-    # Append & display user message
     st.session_state.messages.append({"role": "user", "content": user_prompt})
     with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(user_prompt)
 
-    # Build prompt payload
     system_prompt = construct_system_prompt(learning_mode, expertise_level, document_context)
     api_messages = [{"role": "system", "content": system_prompt}]
 
-    # Carry forward recent chat turns for contextual continuity
     for m in st.session_state.messages[-10:]:
         api_messages.append({"role": m["role"], "content": m["content"]})
 
-    # Stream the assistant response
     with st.chat_message("assistant", avatar="🎓"):
         response_placeholder = st.empty()
         full_response = ""
