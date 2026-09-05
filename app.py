@@ -647,23 +647,11 @@ with st.sidebar:
     # of the branding is preserved.
 
     st.markdown(
-        """
-        <div>
-
-            <div class="brand-logo-text">
-                Synapse.AI
-            </div>
-
-            <div class="brand-tagline">
-                Adaptive AI Learning Companion
-            </div>
-
-        </div>
-
-        <span class="brand-badge">
-            Adaptive Tutor
-        </span>
-        """,
+        """<div>
+<div class="brand-logo-text">Synapse.AI</div>
+<div class="brand-tagline">Adaptive AI Learning Companion</div>
+</div>
+<span class="brand-badge">Adaptive Tutor</span>""",
         unsafe_allow_html=True,
     )
 
@@ -675,9 +663,7 @@ with st.sidebar:
     )
 
     st.markdown(
-        '<div class="sidebar-subtitle">'
-        'Customize how Synapse.AI teaches you.'
-        '</div>',
+        '<div class="sidebar-subtitle">Customize how Synapse.AI teaches you.</div>',
         unsafe_allow_html=True,
     )
 
@@ -786,20 +772,12 @@ with st.sidebar:
 # ============================================================
 
 st.markdown(
-    """
-    <div class="main-header">
-
-        <div class="main-title">
-            Synapse.AI
-        </div>
-
-        <div class="main-subtitle">
-            Your adaptive AI learning companion for understanding
-            concepts, building skills, and learning by doing.
-        </div>
-
-    </div>
-    """,
+    """<div class="main-header">
+<div class="main-title">Synapse.AI</div>
+<div class="main-subtitle">
+Your adaptive AI learning companion for understanding concepts, building skills, and learning by doing.
+</div>
+</div>""",
     unsafe_allow_html=True,
 )
 
