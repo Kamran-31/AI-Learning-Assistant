@@ -1,20 +1,13 @@
 """
 CogniLearn AI - Intelligent Learning Companion
-Modern ChatGPT/Claude-style Interface with Document Processing & Resource Linking
-Loads API Key from .env file or environment variables
+Modern Interface with Document Processing & Resource Linking
+Configured for Streamlit Cloud Deployment Secrets
 """
 
-import os
 import streamlit as st
 from groq import Groq
-from dotenv import load_dotenv
 import pypdf
 import docx
-
-# ---------------------------------------------------------
-# Load Environment Variables from .env
-# ---------------------------------------------------------
-load_dotenv()
 
 # ---------------------------------------------------------
 # Page Configuration & Styling
@@ -42,7 +35,7 @@ st.markdown(
         padding-bottom: 4rem;
     }
 
-    /* Clean subtle app header */
+    /* Clean modern app header */
     .chat-header {
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         padding-bottom: 16px;
@@ -85,15 +78,13 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# Secret Management & Groq Client Setup
+# Secret Management from Streamlit Settings
 # ---------------------------------------------------------
-api_key = os.getenv("GROQ_API_KEY")
-
-if not api_key:
-    st.error("⚠️ `GROQ_API_KEY` not found. Please ensure it is set inside your `.env` file like `GROQ_API_KEY=your_key`.")
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("⚠️ `GROQ_API_KEY` not found in Streamlit Secrets. Please add `GROQ_API_KEY = \"your_key\"` under Manage App ➔ Settings ➔ Secrets.")
     st.stop()
 
-client = Groq(api_key=api_key)
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # ---------------------------------------------------------
 # Document Parser Utilities
